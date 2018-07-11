@@ -37,7 +37,7 @@ struct RandomForest {
     ofs.open(filename, std::ios_base::binary);
     if (ofs.is_open()) {
       for (auto &tree : trees) {
-        ofs.write(reinterpret_cast<const char*>(tree.tree.get()), one_tree_size);
+        ofs.write(reinterpret_cast<const char*>(tree.tree), one_tree_size);
       }
     } else {
       throw std::string("Something wrong in opening file");
@@ -56,7 +56,7 @@ struct RandomForest {
         d_tree.FromInfo(decision_tree_info);
         char *buffer = new char[one_tree_size];
         ifs.read(buffer, one_tree_size);
-        d_tree.tree.reset(reinterpret_cast<TreeNode*>(buffer));
+        d_tree.tree = (reinterpret_cast<TreeNode*>(buffer));
         trees.push_back(std::move(d_tree));
       }
     } else {
@@ -132,7 +132,7 @@ struct RandomForest {
   }
 
   void Test() {
-    decision_res.reset(new std::pair<int, int>[samples.size()]);
+    decision_res->resize(samples.size());
     if (threading == 0) {
       // 无并行
       logger.Info("Use no parallel mode");
@@ -159,8 +159,8 @@ struct RandomForest {
           auto type = TestOne(sample, tree);
 
           // decision_res_mutex.lock();
-          if (type == 0) decision_res[sample.label].first++;
-          else if (type == 1) decision_res[sample.label].second++;
+          if (type == 0) (*decision_res)[sample.label].first++;
+          else if (type == 1) (*decision_res)[sample.label].second++;
           // decision_res_mutex.unlock();
           this->logger.Info("The %d-th job finished", i);
         });
@@ -176,7 +176,7 @@ struct RandomForest {
   DecisionTreeInfo decision_tree_info = DecisionTreeInfo();
   const std::vector<Sample> &samples;
 
-  std::shared_ptr<std::pair<int, int>[]> decision_res;
+  std::shared_ptr<std::vector<std::pair<int, int>>> decision_res;
 
   std::vector<DecisionTree> trees;
   Logger logger;

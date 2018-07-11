@@ -145,7 +145,7 @@ struct DecisionTree {
     double feature_val;
   };
 
-  std::shared_ptr<TreeNode[]> tree;
+  TreeNode *tree = nullptr;
 
   LabelType GetLabel(const SamplePtrVec &samples) {
     if (samples.empty()) return -2;
@@ -214,7 +214,8 @@ struct DecisionTree {
   }
 
   void AllocNewTree(int size) {
-    tree.reset(new TreeNode[size]);
+    if (tree) delete[] tree;
+    else tree = new TreeNode[size];
     for (int i = 0; i < size; ++i) tree[i].label = -2;
   }
 
