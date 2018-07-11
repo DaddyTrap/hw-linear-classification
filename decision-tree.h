@@ -42,8 +42,10 @@ struct DecisionTree {
     SamplePtrVec left, right;
   };
 
-  SplitRes GetSplit(const SamplePtrVec &samples, int feature_index, double split_value) {
+  inline SplitRes GetSplit(const SamplePtrVec &samples, int feature_index, double split_value) {
     SamplePtrVec left, right;
+    left.reserve(200);
+    right.reserve(200);
     for (auto &sample : samples) {
       if ((*sample)[feature_index] < split_value) {
         left.push_back(sample);
@@ -51,7 +53,7 @@ struct DecisionTree {
         right.push_back(sample);
       }
     }
-    return { left, right };
+    return { std::move(left), std::move(right) };
   }
 
   struct BestSplitRes {
@@ -61,14 +63,20 @@ struct DecisionTree {
   };
 
   BestSplitRes GetBestSplit(const SamplePtrVec &samples, const std::vector<int> &feature_indexes) {
+    TikTok tt("GetBestSplit");
+    // tt.Tik();
     BestSplitRes res;
     double min_gini = 1e8;
     // 对每一个(选中的)特征
-    // int feature_count = 0;
     for (auto &feature_index : feature_indexes) {
       // 对每一个样本
-      // int sample_count = 0;
-      for (auto &sample : samples) {
+      TikTok tt("OneFeature");
+      // tt.Tik();
+      SamplePtrVec sort_samples = samples;
+      std::sort(sort_samples.begin(), sort_samples.end(), [feature_index](auto lhs, auto rhs) {
+        return (*lhs)[feature_index] < (*rhs)[feature_index];
+      });
+      /* for (auto &sample : samples) {
         auto split_res = GetSplit(samples, feature_index, (*sample)[feature_index]);
         // 计算该分裂的指标值(Gini不纯度/信息增量)
         auto gini = CalcCoeff(split_res.left) + CalcCoeff(split_res.right);
@@ -80,10 +88,53 @@ struct DecisionTree {
           res.left = split_res.left;
           res.right = split_res.right;
         }
-        // ++sample_count;
+      } */
+      // Use sort
+      for (int mid = 0; mid < sort_samples.size(); ++mid) {
+        SamplePtrVec left;
+        for (int i = 0; i < mid; ++i) {
+          left.push_back(sort_samples[i]);
+        }
+        SamplePtrVec right;
+        for (int i = mid; i < sort_samples.size(); ++i) {
+          right.push_back(sort_samples[i]);
+        }
+        // left gini
+        // double left_gini = 0.0;
+        // {
+        //   int count_0 = 0;
+        //   for (int i = 0; i < mid; ++i) {
+        //     if (sort_samples[i]->label == 0) ++count_0;
+        //   }
+        //   auto p1 = count_0 / double(sort_samples.size());
+        //   auto p2 = (sort_samples.size() - count_0) / double(sort_samples.size());
+        //   left_gini = (p1 * (1.0 - p1)) + (p2 * (1.0 - p2));
+        // }
+        // // right gini
+        // double right_gini = 0.0;
+        // {
+        //   int count_0 = 0;
+        //   for (int i = mid; i < sort_samples.size(); ++i) {
+        //     if (sort_samples[i]->label == 0) ++count_0;
+        //   }
+        //   auto p1 = count_0 / double(sort_samples.size());
+        //   auto p2 = (sort_samples.size() - count_0) / double(sort_samples.size());
+        //   right_gini = (p1 * (1.0 - p1)) + (p2 * (1.0 - p2));
+        // }
+        // auto gini = left_gini + right_gini;
+        auto gini = CalcCoeff(left) + CalcCoeff(right);
+        if (gini < min_gini) {
+          // 如果是当前最小的 Gini，则使用该分裂
+          min_gini = gini;
+          res.feature_index = feature_index;
+          res.feature_val = sort_samples[mid]->operator[](feature_index);
+          res.left = left;
+          res.right = right;
+        }
       }
-      // ++feature_count;
+      // tt.Tok();
     }
+    // tt.Tok();
     return res;
   }
 
@@ -105,7 +156,7 @@ struct DecisionTree {
   }
 
   void BuildTreeRecursive(const SamplePtrVec &samples, int depth, int building_node_index) {
-    logger.Debug("%d building depth %d", id, depth);
+    // logger.Debug("%d building depth %d", id, depth);
     // 检测是否应该结束建树
     if (samples.empty()) {
       // 如果该分组为空，停止建树，贴上标签

@@ -23,7 +23,10 @@ class SimpleThreadPool {
 
           // Get a job
           jobs_mutex.lock();
-          if (this->jobs.empty()) return;
+          if (this->jobs.empty()) {
+            jobs_mutex.unlock();
+            return;
+          }
           auto job = this->jobs.front();
           this->jobs.pop();
           jobs_mutex.unlock();

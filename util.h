@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <cstdarg>
 
+#include <chrono>
+
 inline void SplitString(std::vector<std::string>& res, const std::string &str,
   const std::string &delim) {
   if (str.empty()) return;
@@ -79,6 +81,23 @@ struct Logger {
   const std::string filename;
  private:
   FILE *fd;
+};
+
+using namespace std::chrono;
+using high_clock = high_resolution_clock;
+class TikTok {
+  high_clock::time_point t;
+  std::string tag;
+ public:
+  void Tik() {
+    t = high_clock::now();
+  }
+  void Tok() {
+    auto dur = high_clock::now() - t;
+    printf("[-%s-] %lf\n", tag.c_str(),
+      float(std::chrono::duration_cast<milliseconds>(dur).count()) / 1000.0);
+  }
+  TikTok(const std::string &tag) : tag(tag) {}
 };
 
 #endif

@@ -35,6 +35,11 @@ int main(int argc, char *args[]) {
     }
   }
 
+  // printf("ArgTable:\n");
+  // for (auto &pair : table) {
+  //   printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+  // }
+
   std::string arg1 = args[1];
   std::string arg2 = args[2];
 
@@ -42,7 +47,6 @@ int main(int argc, char *args[]) {
   int threading = -1;
   TableValToInt(table, "-p", threading);
 
-  RandomForest rf(201, reader.samples, threading);
 
   if (arg1 == "train") {
     // TreeInfo
@@ -58,10 +62,12 @@ int main(int argc, char *args[]) {
     DecisionTreeInfo info;
     info.max_depth = max_depth;
     info.min_samples_split = min_samples_split;
+    RandomForest rf(201, reader.samples, threading, info, tree_count, one_sample_size);
 
     rf.CalcTrees();
     rf.SaveTreesToFile("tree.bin");
   } else if (arg1 == "test") {
+    RandomForest rf(201, reader.samples, threading);
     rf.LoadTreesFromFile("tree.bin");
     rf.TestAndSave("test_res.csv");
   } else {

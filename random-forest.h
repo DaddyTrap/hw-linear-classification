@@ -20,6 +20,14 @@ struct RandomForest {
       one_sample_size(one_sample_size) {
     decision_tree_info.features_count = features_count;
     decision_tree_info.max_features = sqrt(features_count);
+
+    // Output info
+    std::string infos;
+    infos += "\n\tmax-depth: " + std::to_string(decision_tree_info.max_depth) + '\n'
+           + "\tmin-split: " + std::to_string(decision_tree_info.min_samples_split) + '\n'
+           + "\ttree-count: " + std::to_string(tree_count) + '\n'
+           + "\tsample-size: " + std::to_string(one_sample_size) + '\n';
+    this->logger.Debug(infos.c_str());
   }
 
   void SaveTreesToFile(const std::string filename) {
@@ -58,6 +66,8 @@ struct RandomForest {
   }
 
   DecisionTree CalcOneTree(int id) {
+    TikTok tt("CalcOneTree id: " + std::to_string(id));
+    tt.Tik();
     DecisionTree tree(CalcGini, Logger(), id);
     tree.FromInfo(decision_tree_info);
     // 随机采样
@@ -75,6 +85,7 @@ struct RandomForest {
       vec.push_back(&samples[index]);
     }
     tree.BuildTree(vec);
+    tt.Tok();
     return tree;
   }
 
