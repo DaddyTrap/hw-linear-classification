@@ -13,9 +13,11 @@ using TreeNode = DecisionTree::TreeNode;
 
 struct RandomForest {
   RandomForest(int features_count, const std::vector<Sample> &samples, int threading = 0,
-    const Logger &logger = Logger())
+    const DecisionTreeInfo info = DecisionTreeInfo(), int tree_count = 100,
+    int one_sample_size = 1000, const Logger &logger = Logger())
     : samples(samples), threading(threading), features_count(features_count),
-      logger(logger) {
+      logger(logger), decision_tree_info(info), tree_count(tree_count),
+      one_sample_size(one_sample_size) {
     decision_tree_info.features_count = features_count;
     decision_tree_info.max_features = sqrt(features_count);
   }
@@ -42,7 +44,7 @@ struct RandomForest {
     ifs.open(filename, std::ios_base::binary);
     if (ifs.is_open()) {
       while (!ifs.eof()) {
-        DecisionTree d_tree(CaclGini);
+        DecisionTree d_tree(CalcGini);
         d_tree.FromInfo(decision_tree_info);
         char *buffer = new char[one_tree_size];
         ifs.read(buffer, one_tree_size);
@@ -56,13 +58,21 @@ struct RandomForest {
   }
 
   DecisionTree CalcOneTree(int id) {
-    DecisionTree tree(CaclGini, Logger(), id);
+    DecisionTree tree(CalcGini, Logger(), id);
     tree.FromInfo(decision_tree_info);
     // 随机采样
     SamplePtrVec vec;
+    std::vector<int> rand_indexes;
     for (int i = 0; i < one_sample_size; ++i) {
       int rand_index = Randomer::RandInt(0, samples.size());
-      vec.push_back(&samples[rand_index]);
+      while (std::find(rand_indexes.begin(), rand_indexes.end(), rand_index)
+        != rand_indexes.end()) {
+        rand_index = Randomer::RandInt(0, samples.size());
+      }
+      rand_indexes.push_back(rand_index);
+    }
+    for (auto index : rand_indexes) {
+      vec.push_back(&samples[index]);
     }
     tree.BuildTree(vec);
     return tree;
@@ -100,6 +110,53 @@ struct RandomForest {
     }
   }
 
+  LabelType TestOne(const Sample &sample, DecisionTree &tree) {
+    auto type = tree.TestTree(sample);
+    return type;
+  }
+
+  void TestAndSave(const std::string &filename) {
+    Test();
+    // TODO: Save
+  }
+
+  void Test() {
+    decision_res.reset(new std::pair<int, int>[samples.size()]);
+    if (threading == 0) {
+      // 无并行
+      logger.Info("Use no parallel mode");
+      for (auto &tree : trees) {
+        for (int i = 0; i < samples.size(); ++i) {
+          TestOne(samples[i], tree);
+        }
+      }
+      return;
+    }
+    // 并行
+    int thread_count = threading;
+    if (threading < 0) {
+      logger.Info("No thread_count specified, check cpu cores...");
+      thread_count = std::thread::hardware_concurrency();
+    }
+    logger.Info("Use %d threads to calculate", thread_count);
+    SimpleThreadPool pool(thread_count);
+    for (auto &tree : trees) {
+      for (int i = 0; i < samples.size(); ++i) {
+        pool.AddJob([this, i, &tree]() {
+          logger.Info("Adding %d-th job...", i);
+          auto &sample = this->samples[i];
+          auto type = TestOne(sample, tree);
+
+          // decision_res_mutex.lock();
+          if (type == 0) decision_res[sample.label].first++;
+          else if (type == 1) decision_res[sample.label].second++;
+          // decision_res_mutex.unlock();
+          this->logger.Info("The %d-th job finished", i);
+        });
+      }
+    }
+  }
+
   // 0 for no threading, neg number for using all the cpus, pos number for specifying a certain number
   int threading = 0;
   int tree_count = 100;
@@ -108,9 +165,11 @@ struct RandomForest {
   DecisionTreeInfo decision_tree_info = DecisionTreeInfo();
   const std::vector<Sample> &samples;
 
+  std::shared_ptr<std::pair<int, int>[]> decision_res;
+
   std::vector<DecisionTree> trees;
   Logger logger;
-  std::mutex trees_mutex;
+  std::mutex trees_mutex, decision_res_mutex;
 };
 
 #endif

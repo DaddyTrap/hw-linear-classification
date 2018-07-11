@@ -44,12 +44,12 @@ struct Randomer {
 struct Logger {
   void VLog(const char *tag, const char *format, va_list vl) {
     if (to_screen) {
-      printf("[%s] ", tag);
+      printf("[%s]\t", tag);
       vprintf(format, vl);
       printf("\n");
     }
     if (to_file) {
-      fprintf(fd, "[%s] ", tag);
+      fprintf(fd, "[%s]\t", tag);
       vfprintf(fd, format, vl);
       fprintf(fd, "\n");
     }

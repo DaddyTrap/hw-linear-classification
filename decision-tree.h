@@ -64,8 +64,10 @@ struct DecisionTree {
     BestSplitRes res;
     double min_gini = 1e8;
     // 对每一个(选中的)特征
+    // int feature_count = 0;
     for (auto &feature_index : feature_indexes) {
       // 对每一个样本
+      // int sample_count = 0;
       for (auto &sample : samples) {
         auto split_res = GetSplit(samples, feature_index, (*sample)[feature_index]);
         // 计算该分裂的指标值(Gini不纯度/信息增量)
@@ -78,7 +80,9 @@ struct DecisionTree {
           res.left = split_res.left;
           res.right = split_res.right;
         }
+        // ++sample_count;
       }
+      // ++feature_count;
     }
     return res;
   }
@@ -95,9 +99,9 @@ struct DecisionTree {
   LabelType GetLabel(const SamplePtrVec &samples) {
     if (samples.empty()) return -2;
     auto label_0_count = std::count_if(samples.begin(), samples.end(), [](const Sample* sample) {
-      return sample->label == '0';
+      return sample->label == 0;
     });
-    return label_0_count > (samples.size() - label_0_count) ? '0' : '1';
+    return label_0_count > (samples.size() - label_0_count) ? 0 : 1;
   }
 
   void BuildTreeRecursive(const SamplePtrVec &samples, int depth, int building_node_index) {
@@ -118,8 +122,9 @@ struct DecisionTree {
       while (std::find(chosen_feature_index.begin(),
         chosen_feature_index.end(),
         rand_index) != chosen_feature_index.end()) {
-        chosen_feature_index.push_back(rand_index);
+        rand_index = Randomer::RandInt(0, features_count);
       }
+      chosen_feature_index.push_back(rand_index);
     }
     // 寻找该结点使用哪个样本的哪个特征进行分裂
     auto best_split_res = GetBestSplit(samples, chosen_feature_index);
@@ -152,6 +157,7 @@ struct DecisionTree {
       tree[building_node_index * 2 + 1].label = GetLabel(best_split_res.right);
     } else {
       // 否则，递归建树
+      tree[building_node_index].label = -1;
       BuildTreeRecursive(best_split_res.right, depth + 1, building_node_index * 2 + 1);
     }
   }
@@ -164,6 +170,21 @@ struct DecisionTree {
   void BuildTree(const SamplePtrVec &samples) {
     AllocNewTree(pow(2, max_depth));
     BuildTreeRecursive(samples, 1, 1);
+  }
+
+  LabelType TestTree(const Sample &sample, int visiting_index = 1) {
+    auto &visiting = tree[visiting_index];
+    if (visiting.label == -2) return -2;
+    if (visiting.label == 0 || visiting.label == 1) {
+      return visiting.label;
+    }
+    if (sample[visiting.feature_index] < visiting.feature_val) {
+      // left
+      return TestTree(sample, visiting_index * 2);
+    } else {
+      // right
+      return TestTree(sample, visiting_index * 2 + 1);
+    }
   }
 
   int max_features;
@@ -179,9 +200,9 @@ struct DecisionTree {
   std::function<double (const SamplePtrVec&)> CalcCoeff;
 };
 
-inline double CaclGini(const SamplePtrVec &samples) {
+inline double CalcGini(const SamplePtrVec &samples) {
   auto count = std::count_if(samples.begin(), samples.end(), [](const Sample *sample) -> bool {
-    return sample->label == '0';
+    return sample->label == 0;
   });
   auto p1 = count / double(samples.size());
   auto p2 = (samples.size() - count) / double(samples.size());

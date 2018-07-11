@@ -3,6 +3,15 @@
 
 #include <cstdio>
 #include <string>
+#include <unordered_map>
+
+using ArgsTable = std::unordered_map<std::string, std::string>;
+
+void TableValToInt(const ArgsTable &table, const std::string &key, int &val) {
+  if (table.count(key) > 0) {
+    sscanf(table.at(key).c_str(), "%d", &val);
+  }
+}
 
 void ShowHint() {
   printf("Use rf train|test train_data|test_data\n");
@@ -13,24 +22,48 @@ int main(int argc, char *args[]) {
     ShowHint();
     return 1;
   }
+
+  ArgsTable table;
+
+  std::string first, second;
+  for (int i = 3; i < argc; ++i) {
+    if (i % 2 == 1) {
+      first = args[i];
+    } else {
+      second = args[i];
+      table[first] = second;
+    }
+  }
+
   std::string arg1 = args[1];
   std::string arg2 = args[2];
 
+  DataReader reader(arg2);
+  int threading = -1;
+  TableValToInt(table, "-p", threading);
+
+  RandomForest rf(201, reader.samples, threading);
+
   if (arg1 == "train") {
-    DataReader reader(arg2);
-    int threading = -1;
-    if (argc > 4) {
-      std::string arg3 = args[3];
-      std::string arg4 = args[4];
-      if (arg3 == "-p") {
-        sscanf(arg4.c_str(), "%d", &threading);
-      }
-    }
-    RandomForest rf(201, reader.samples, threading);
+    // TreeInfo
+    int max_depth = 10;
+    int min_samples_split = 2;
+    int tree_count = 100;
+    int one_sample_size = 1000;
+    TableValToInt(table, "-d", max_depth);
+    TableValToInt(table, "-min-split", min_samples_split);
+    TableValToInt(table, "-c", tree_count);
+    TableValToInt(table, "-sample-size", one_sample_size);
+
+    DecisionTreeInfo info;
+    info.max_depth = max_depth;
+    info.min_samples_split = min_samples_split;
+
     rf.CalcTrees();
     rf.SaveTreesToFile("tree.bin");
   } else if (arg1 == "test") {
-    // TODO:
+    rf.LoadTreesFromFile("tree.bin");
+    rf.TestAndSave("test_res.csv");
   } else {
     ShowHint();
   }
