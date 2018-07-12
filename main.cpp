@@ -23,7 +23,7 @@ constexpr char kTestResFile[] = "test_res.csv";
 
 RandomForest *p_rf = nullptr;
 
-void SaveAllThings(int sig) {
+void SaveAll() {
   if (!p_rf) {
     printf("No RandomForest instance yet..");
   } else {
@@ -31,7 +31,16 @@ void SaveAllThings(int sig) {
     p_rf->SaveTest(kTestResFile);
     p_rf->SaveTreesToFile(kTreeBinFile);
   }
-  exit(1);
+}
+
+void HandleSignal(int sig) {
+  if (sig == SIGINT) {
+    SaveAll();
+    printf("Saving done!\nUse `kill -30` to kill this process\n");
+  } else if (sig == 30) {
+    SaveAll();
+    exit(1);
+  }
 }
 
 int main(int argc, char *args[]) {
@@ -40,7 +49,8 @@ int main(int argc, char *args[]) {
     return 1;
   }
 
-  signal(SIGINT, SaveAllThings);
+  signal(SIGINT, HandleSignal);
+  signal(30, HandleSignal);
 
   ArgsTable table;
 
