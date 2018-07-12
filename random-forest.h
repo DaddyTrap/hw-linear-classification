@@ -128,6 +128,10 @@ struct RandomForest {
 
   void TestAndSave(const std::string &filename) {
     Test();
+    SaveTest(filename);
+  }
+
+  void SaveTest(const std::string &filename) {
     logger.Info("Saving test result...");
     std::ofstream ofs(filename);
     ofs << "id,label\n";

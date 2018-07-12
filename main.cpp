@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
+#include <signal.h>
 
 using ArgsTable = std::unordered_map<std::string, std::string>;
 
@@ -17,11 +18,29 @@ void ShowHint() {
   printf("Use rf train|test train_data|test_data\n");
 }
 
+constexpr char kTreeBinFile[] = "tree.bin";
+constexpr char kTestResFile[] = "test_res.csv";
+
+RandomForest *p_rf = nullptr;
+
+void SaveAllThings(int sig) {
+  if (!p_rf) {
+    printf("No RandomForest instance yet..");
+  } else {
+    printf("Saving all the things...");
+    p_rf->SaveTest(kTestResFile);
+    p_rf->SaveTreesToFile(kTreeBinFile);
+  }
+  exit(1);
+}
+
 int main(int argc, char *args[]) {
   if (argc <= 2) {
     ShowHint();
     return 1;
   }
+
+  signal(SIGINT, SaveAllThings);
 
   ArgsTable table;
 
@@ -63,11 +82,13 @@ int main(int argc, char *args[]) {
     info.max_depth = max_depth;
     info.min_samples_split = min_samples_split;
     RandomForest rf(201, reader.samples, threading, info, tree_count, one_sample_size);
+    p_rf = &rf;
 
     rf.CalcTrees();
     rf.SaveTreesToFile("tree.bin");
   } else if (arg1 == "test") {
     RandomForest rf(201, reader.samples, threading);
+    p_rf = &rf;
     rf.LoadTreesFromFile("tree.bin");
     rf.TestAndSave("test_res.csv");
   } else {
