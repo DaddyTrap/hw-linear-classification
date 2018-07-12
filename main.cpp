@@ -105,6 +105,14 @@ int main(int argc, char *args[]) {
     p_rf = &rf;
     rf.LoadTreesFromFile("tree.bin");
     rf.TestAndSave("test_res.csv");
+  } else if (arg1 == "print") {
+    RandomForest rf(201, reader.samples, threading, DecisionTreeInfo(), 100, 1000, logger);
+    p_rf = &rf;
+    rf.LoadTreesFromFile("tree.bin");
+    auto &trees = rf.trees;
+    for (auto &tree : trees) {
+      tree.TryTree();
+    }
   } else {
     ShowHint();
   }

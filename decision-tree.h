@@ -9,6 +9,9 @@
 #include "util.h"
 #include <random>
 #include <algorithm>
+#include <queue>
+
+// #define NO_SORT
 
 using SamplePtrVec = std::vector<const Sample*>;
 using LabelType = char;
@@ -71,12 +74,10 @@ struct DecisionTree {
     for (auto &feature_index : feature_indexes) {
       // 对每一个样本
       TikTok tt("OneFeature");
+      // printf("sample size: %lu\n", samples.size());
       // tt.Tik();
-      SamplePtrVec sort_samples = samples;
-      std::sort(sort_samples.begin(), sort_samples.end(), [feature_index](auto lhs, auto rhs) {
-        return (*lhs)[feature_index] < (*rhs)[feature_index];
-      });
-      /* for (auto &sample : samples) {
+      #ifdef NO_SORT
+      for (auto &sample : samples) {
         auto split_res = GetSplit(samples, feature_index, (*sample)[feature_index]);
         // 计算该分裂的指标值(Gini不纯度/信息增量)
         auto gini = CalcCoeff(split_res.left) + CalcCoeff(split_res.right);
@@ -88,7 +89,12 @@ struct DecisionTree {
           res.left = split_res.left;
           res.right = split_res.right;
         }
-      } */
+      }
+      #else
+      SamplePtrVec sort_samples = samples;
+      std::sort(sort_samples.begin(), sort_samples.end(), [feature_index](auto lhs, auto rhs) {
+        return (*lhs)[feature_index] < (*rhs)[feature_index];
+      });
       // Use sort
       for (int mid = 0; mid < sort_samples.size(); ++mid) {
         SamplePtrVec left;
@@ -99,30 +105,8 @@ struct DecisionTree {
         for (int i = mid; i < sort_samples.size(); ++i) {
           right.push_back(sort_samples[i]);
         }
-        // left gini
-        // double left_gini = 0.0;
-        // {
-        //   int count_0 = 0;
-        //   for (int i = 0; i < mid; ++i) {
-        //     if (sort_samples[i]->label == 0) ++count_0;
-        //   }
-        //   auto p1 = count_0 / double(sort_samples.size());
-        //   auto p2 = (sort_samples.size() - count_0) / double(sort_samples.size());
-        //   left_gini = (p1 * (1.0 - p1)) + (p2 * (1.0 - p2));
-        // }
-        // // right gini
-        // double right_gini = 0.0;
-        // {
-        //   int count_0 = 0;
-        //   for (int i = mid; i < sort_samples.size(); ++i) {
-        //     if (sort_samples[i]->label == 0) ++count_0;
-        //   }
-        //   auto p1 = count_0 / double(sort_samples.size());
-        //   auto p2 = (sort_samples.size() - count_0) / double(sort_samples.size());
-        //   right_gini = (p1 * (1.0 - p1)) + (p2 * (1.0 - p2));
-        // }
-        // auto gini = left_gini + right_gini;
         auto gini = CalcCoeff(left) + CalcCoeff(right);
+        // printf("gini: %lf\n", gini);
         if (gini < min_gini) {
           // 如果是当前最小的 Gini，则使用该分裂
           min_gini = gini;
@@ -132,6 +116,7 @@ struct DecisionTree {
           res.right = right;
         }
       }
+      #endif
       // tt.Tok();
     }
     // tt.Tok();
@@ -148,7 +133,9 @@ struct DecisionTree {
   TreeNode *tree = nullptr;
 
   LabelType GetLabel(const SamplePtrVec &samples) {
-    if (samples.empty()) return -2;
+    if (samples.empty()) {
+      return -2;
+    }
     auto label_0_count = std::count_if(samples.begin(), samples.end(), [](const Sample* sample) {
       return sample->label == 0;
     });
@@ -182,11 +169,13 @@ struct DecisionTree {
     // 写入分裂信息到该结点
     tree[building_node_index].feature_index = best_split_res.feature_index;
     tree[building_node_index].feature_val = best_split_res.feature_val;
+    tree[building_node_index].label = -1;
     // 检测分裂结果，是否继续建树
     // 如果某侧分裂结果为空，强制产生叶结点，以结果中最多的标签作为结点标签
     if (best_split_res.left.empty() || best_split_res.right.empty()) {
-      tree[building_node_index * 2].label = tree[building_node_index * 2 + 1].label
-        = GetLabel(MergeVectors(best_split_res.left, best_split_res.right));
+      // tree[building_node_index * 2].label = tree[building_node_index * 2 + 1].label
+      //   = GetLabel(MergeVectors(best_split_res.left, best_split_res.right));
+      tree[building_node_index].label = GetLabel(samples);
       return;
     }
     // 如果深度达到了最大深度，强制产生叶结点
@@ -200,7 +189,6 @@ struct DecisionTree {
       tree[building_node_index * 2].label = GetLabel(best_split_res.left);
     } else {
       // 否则，递归建树
-      tree[building_node_index].label = -1;
       BuildTreeRecursive(best_split_res.left, depth + 1, building_node_index * 2);
     }
     // 如果右侧分裂结果太少，强制产生叶结点
@@ -208,7 +196,6 @@ struct DecisionTree {
       tree[building_node_index * 2 + 1].label = GetLabel(best_split_res.right);
     } else {
       // 否则，递归建树
-      tree[building_node_index].label = -1;
       BuildTreeRecursive(best_split_res.right, depth + 1, building_node_index * 2 + 1);
     }
   }
@@ -236,6 +223,29 @@ struct DecisionTree {
     } else {
       // right
       return TestTree(sample, visiting_index * 2 + 1);
+    }
+  }
+
+  void PrintTree() {
+    int size = pow(2, max_depth);
+    int depth = 1;
+    for (int i = 1; i < size; ++i) {
+      auto &node = tree[i];
+      printf("(i: %d, v: %lf, l: %d)", node.feature_index, node.feature_val, node.label);
+      if (i == depth) {
+        printf("\n");
+        depth = depth * 2 + 1;
+      }
+    }
+  }
+
+  void TryTree(int visiting_index = 1) {
+    auto &visiting = tree[visiting_index];
+    if (visiting.label == -2) printf("FAQ!\n");
+    if (visiting.label == 1 || visiting.label == 2) return;
+    if (visiting.label == -1) {
+      TryTree(visiting_index * 2);
+      TryTree(visiting_index * 2 + 1);
     }
   }
 

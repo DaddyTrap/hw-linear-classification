@@ -134,13 +134,25 @@ struct RandomForest {
   void SaveTest(const std::string &filename) {
     logger.Info("Saving test result...");
     std::ofstream ofs(filename);
+    std::ofstream dr_ofs("_decision_res.txt");
     ofs << "id,label\n";
     for (int i = 0; i < decision_res.size(); ++i) {
       auto &res = decision_res[i];
       double rate = double(res.first) / (res.first + res.second);
+      dr_ofs << i << " " << res.first << " " << res.second << std::endl;
       ofs << i << "," << rate << std::endl;
     }
     logger.Info("Saving test result done.");
+  }
+
+  inline void AddDecisionWithType(LabelType type, int index) {
+    if (type == 0) {
+      decision_res[index].first++;
+    } else if (type == 1) {
+      decision_res[index].second++;
+    } else {
+      logger.Debug("Type %d is abnormal", type);
+    }
   }
 
   void Test() {
@@ -152,7 +164,10 @@ struct RandomForest {
         TikTok tt("One Tree to all samples");
         tt.Tik();
         for (int i = 0; i < samples.size(); ++i) {
-          TestOne(samples[i], tree);
+          auto &sample = samples[i];
+
+          auto type = TestOne(samples[i], tree);
+          AddDecisionWithType(type, i);
         }
         tt.Tok();
       }
@@ -166,20 +181,19 @@ struct RandomForest {
     }
     logger.Info("Use %d threads to calculate", thread_count);
     SimpleThreadPool pool(thread_count);
-    for (auto &tree : trees) {
+    for (int i = 0; i < trees.size(); ++i) {
+      auto &tree = trees[i];
       TikTok tt("One Tree to all samples");
       tt.Tik();
-      for (int i = 0; i < samples.size(); ++i) {
-        pool.AddJob([this, i, &tree]() {
-          logger.Info("Adding %d-th job...", i);
-          auto &sample = this->samples[i];
+      logger.Info("Processing %d-th tree", i);
+      for (int j = 0; j < samples.size(); ++j) {
+        pool.AddJob([this, j, &tree]() {
+          auto &sample = this->samples[j];
           auto type = TestOne(sample, tree);
 
           // decision_res_mutex.lock();
-          if (type == 0) decision_res[sample.label].first++;
-          else if (type == 1) decision_res[sample.label].second++;
+          AddDecisionWithType(type, j);
           // decision_res_mutex.unlock();
-          this->logger.Info("The %d-th job finished", i);
         });
       }
       tt.Tok();

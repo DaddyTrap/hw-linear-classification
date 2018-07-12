@@ -33,7 +33,9 @@ struct DataReader {
         sscanf(line_split[i].c_str(), "%d:%lf", &index, &val);
         data[index] = val;
       }
-      samples.push_back({ line_split[0][0], std::move(data) });
+      constexpr char kZero = '0';
+      LabelType label = line_split[0][0] - kZero;
+      samples.push_back({ label, std::move(data) });
     }
     printf("Total: %d records\n", count);
   }
