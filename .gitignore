@@ -2,3 +2,5 @@
 build/
 data/*
 *.bin
+test_res.csv
+_decision_res.txt
