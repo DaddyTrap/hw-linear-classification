@@ -128,11 +128,19 @@ struct RandomForest {
 
   void TestAndSave(const std::string &filename) {
     Test();
-    // TODO: Save
+    logger.Info("Saving test result...");
+    std::ofstream ofs(filename);
+    ofs << "id,label\n";
+    for (int i = 0; i < decision_res.size(); ++i) {
+      auto &res = decision_res[i];
+      double rate = double(res.first) / (res.first + res.second);
+      ofs << i << "," << rate << std::endl;
+    }
+    logger.Info("Saving test result done.");
   }
 
   void Test() {
-    decision_res->resize(samples.size());
+    decision_res.resize(samples.size());
     if (threading == 0) {
       // 无并行
       logger.Info("Use no parallel mode");
@@ -159,8 +167,8 @@ struct RandomForest {
           auto type = TestOne(sample, tree);
 
           // decision_res_mutex.lock();
-          if (type == 0) (*decision_res)[sample.label].first++;
-          else if (type == 1) (*decision_res)[sample.label].second++;
+          if (type == 0) decision_res[sample.label].first++;
+          else if (type == 1) decision_res[sample.label].second++;
           // decision_res_mutex.unlock();
           this->logger.Info("The %d-th job finished", i);
         });
@@ -176,7 +184,7 @@ struct RandomForest {
   DecisionTreeInfo decision_tree_info = DecisionTreeInfo();
   const std::vector<Sample> &samples;
 
-  std::shared_ptr<std::vector<std::pair<int, int>>> decision_res;
+  std::vector<std::pair<int, int>> decision_res;
 
   std::vector<DecisionTree> trees;
   Logger logger;
