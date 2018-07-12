@@ -111,8 +111,8 @@ struct RandomForest {
     if (threading < 0) {
       logger.Info("No thread_count specified, check cpu cores...");
       thread_count = std::thread::hardware_concurrency();
-      omp_set_num_threads(thread_count);
     }
+    omp_set_num_threads(thread_count);
     logger.Info("Use %d threads to calculate", thread_count);
     // SimpleThreadPool pool(thread_count);
     #pragma omp parallel for
@@ -122,8 +122,10 @@ struct RandomForest {
       auto tree = CalcOneTree(i);
 
       // trees_mutex.lock();
+      omp_set_lock(&trees_lock);
       this->trees.push_back(std::move(tree));
       // trees_mutex.unlock();
+      omp_unset_lock(&trees_lock);
 
       this->logger.Info("The %d-th job finished", i);
       // });
@@ -187,8 +189,8 @@ struct RandomForest {
     if (threading < 0) {
       logger.Info("No thread_count specified, check cpu cores...");
       thread_count = std::thread::hardware_concurrency();
-      omp_set_num_threads(thread_count);
     }
+    omp_set_num_threads(thread_count);
     logger.Info("Use %d threads to calculate", thread_count);
     // SimpleThreadPool pool(thread_count);
     for (int i = 0; i < trees.size(); ++i) {
