@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <signal.h>
+#include <omp.h>
 
 using ArgsTable = std::unordered_map<std::string, std::string>;
 

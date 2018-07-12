@@ -1,6 +1,6 @@
 CXX=g++
 CXX_STANDARD=c++14
-CXX_FLAGS=-g -lpthread -O3
+CXX_FLAGS=-g -lpthread -O3 -fopenmp
 
 BUILD_DIR=build
 

@@ -6,7 +6,8 @@
 #include <fstream>
 #include <exception>
 #include <thread>
-#include "simple-threadpool.h"
+// #include "simple-threadpool.h"
+#include <omp.h>
 
 using DecisionTreeInfo = DecisionTree::DecisionTreeInfo;
 using TreeNode = DecisionTree::TreeNode;
@@ -21,6 +22,8 @@ struct RandomForest {
     decision_tree_info.features_count = features_count;
     decision_tree_info.max_features = sqrt(features_count);
 
+    omp_init_lock(&trees_lock);
+
     // Output info
     std::string infos;
     infos += "\n\tmax-depth: " + std::to_string(decision_tree_info.max_depth) + '\n'
@@ -28,6 +31,10 @@ struct RandomForest {
            + "\ttree-count: " + std::to_string(tree_count) + '\n'
            + "\tsample-size: " + std::to_string(one_sample_size) + '\n';
     this->logger.Debug(infos.c_str());
+  }
+
+  ~RandomForest() {
+    omp_destroy_lock(&trees_lock);
   }
 
   void SaveTreesToFile(const std::string filename) {
@@ -104,20 +111,22 @@ struct RandomForest {
     if (threading < 0) {
       logger.Info("No thread_count specified, check cpu cores...");
       thread_count = std::thread::hardware_concurrency();
+      omp_set_num_threads(thread_count);
     }
     logger.Info("Use %d threads to calculate", thread_count);
-    SimpleThreadPool pool(thread_count);
+    // SimpleThreadPool pool(thread_count);
+    #pragma omp parallel for
     for (int i = 0; i < tree_count; ++i) {
       logger.Info("Adding %d-th job...", i);
-      pool.AddJob([this, i]() {
-        auto tree = CalcOneTree(i);
+      // pool.AddJob([this, i]() {
+      auto tree = CalcOneTree(i);
 
-        trees_mutex.lock();
-        this->trees.push_back(std::move(tree));
-        trees_mutex.unlock();
+      // trees_mutex.lock();
+      this->trees.push_back(std::move(tree));
+      // trees_mutex.unlock();
 
-        this->logger.Info("The %d-th job finished", i);
-      });
+      this->logger.Info("The %d-th job finished", i);
+      // });
     }
   }
 
@@ -178,23 +187,25 @@ struct RandomForest {
     if (threading < 0) {
       logger.Info("No thread_count specified, check cpu cores...");
       thread_count = std::thread::hardware_concurrency();
+      omp_set_num_threads(thread_count);
     }
     logger.Info("Use %d threads to calculate", thread_count);
-    SimpleThreadPool pool(thread_count);
+    // SimpleThreadPool pool(thread_count);
     for (int i = 0; i < trees.size(); ++i) {
       auto &tree = trees[i];
       TikTok tt("One Tree to all samples");
       tt.Tik();
       logger.Info("Processing %d-th tree", i);
+      #pragma omp parallel for
       for (int j = 0; j < samples.size(); ++j) {
-        pool.AddJob([this, j, &tree]() {
-          auto &sample = this->samples[j];
-          auto type = TestOne(sample, tree);
+        // pool.AddJob([this, j, &tree]() {
+        auto &sample = this->samples[j];
+        auto type = TestOne(sample, tree);
 
-          // decision_res_mutex.lock();
-          AddDecisionWithType(type, j);
-          // decision_res_mutex.unlock();
-        });
+        // decision_res_mutex.lock();
+        AddDecisionWithType(type, j);
+        // decision_res_mutex.unlock();
+        // });
       }
       tt.Tok();
     }
@@ -212,7 +223,8 @@ struct RandomForest {
 
   std::vector<DecisionTree> trees;
   Logger logger;
-  std::mutex trees_mutex, decision_res_mutex;
+  // std::mutex trees_mutex, decision_res_mutex;
+  omp_lock_t trees_lock;
 };
 
 #endif
