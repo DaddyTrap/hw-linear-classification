@@ -76,6 +76,10 @@ int main(int argc, char *args[]) {
   int threading = -1;
   TableValToInt(table, "-p", threading);
 
+  int verbose = 1;
+  TableValToInt(table, "-v", verbose);
+
+  Logger logger(verbose, false);
 
   if (arg1 == "train") {
     // TreeInfo
@@ -91,13 +95,13 @@ int main(int argc, char *args[]) {
     DecisionTreeInfo info;
     info.max_depth = max_depth;
     info.min_samples_split = min_samples_split;
-    RandomForest rf(201, reader.samples, threading, info, tree_count, one_sample_size);
+    RandomForest rf(201, reader.samples, threading, info, tree_count, one_sample_size, logger);
     p_rf = &rf;
 
     rf.CalcTrees();
     rf.SaveTreesToFile("tree.bin");
   } else if (arg1 == "test") {
-    RandomForest rf(201, reader.samples, threading);
+    RandomForest rf(201, reader.samples, threading, DecisionTreeInfo(), 100, 1000, logger);
     p_rf = &rf;
     rf.LoadTreesFromFile("tree.bin");
     rf.TestAndSave("test_res.csv");

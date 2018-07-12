@@ -149,9 +149,12 @@ struct RandomForest {
       // 无并行
       logger.Info("Use no parallel mode");
       for (auto &tree : trees) {
+        TikTok tt("One Tree to all samples");
+        tt.Tik();
         for (int i = 0; i < samples.size(); ++i) {
           TestOne(samples[i], tree);
         }
+        tt.Tok();
       }
       return;
     }
@@ -164,6 +167,8 @@ struct RandomForest {
     logger.Info("Use %d threads to calculate", thread_count);
     SimpleThreadPool pool(thread_count);
     for (auto &tree : trees) {
+      TikTok tt("One Tree to all samples");
+      tt.Tik();
       for (int i = 0; i < samples.size(); ++i) {
         pool.AddJob([this, i, &tree]() {
           logger.Info("Adding %d-th job...", i);
@@ -177,6 +182,7 @@ struct RandomForest {
           this->logger.Info("The %d-th job finished", i);
         });
       }
+      tt.Tok();
     }
   }
 
